@@ -1,41 +1,53 @@
 'use client';
 
 import { useGLTF } from '@react-three/drei';
-import { useRef, useEffect } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useRef, useEffect, useMemo } from 'react';
 import * as THREE from 'three';
 
 interface ShirtProps {
   shirtColor: string;
+  shirtPattern: string | null;
 }
 
-export default function ShirtModel({ shirtColor }: ShirtProps) {
+export default function ShirtModel({ shirtColor, shirtPattern }: ShirtProps) {
   const shirtRef = useRef<THREE.Group>(null);
   const { scene } = useGLTF('/models/tshirt.glb');
 
-  // Apply new material color to all meshes
+  const texture = useMemo(() => {
+    if (!shirtPattern) return null;
+
+    const loader = new THREE.TextureLoader();
+    const tex = loader.load(shirtPattern);
+    tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+    tex.repeat.set(6, 6);
+    tex.flipY = false;
+    tex.colorSpace = THREE.SRGBColorSpace;
+    return tex;
+  }, [shirtPattern]);
+
   useEffect(() => {
     scene.traverse(child => {
       if ((child as THREE.Mesh).isMesh) {
-        (child as THREE.Mesh).material = new THREE.MeshStandardMaterial({
-          color: shirtColor,
+        const mesh = child as THREE.Mesh;
+        mesh.material = new THREE.MeshStandardMaterial({
+          map: texture || null,
+          color: texture
+            ? new THREE.Color('#ffffff')
+            : new THREE.Color(shirtColor),
+          roughness: 0.7,
+          metalness: 0.1,
         });
+        mesh.material.needsUpdate = true;
       }
     });
-  }, [scene, shirtColor]);
-
-  useFrame(() => {
-    if (shirtRef.current) {
-      shirtRef.current.rotation.y += 0.003;
-    }
-  });
+  }, [scene, shirtColor, texture]);
 
   return (
     <primitive
       ref={shirtRef}
       object={scene}
       scale={[2.5, 2.5, 2.5]}
-      position={[0, -3, 0]}
+      position={[0, -1, 0]}
       rotation={[0, Math.PI, 0]}
     />
   );
